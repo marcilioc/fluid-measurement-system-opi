@@ -29,9 +29,9 @@ class MqttWorker(QtCore.QObject):
         self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=self._client_id)
         
         # Connect callbacks for API V2
-        self._client.on_connect = self._on_connect_v2
+        self._client.on_connect = self._on_connect
         self._client.on_message = self._on_message # on_message signature is compatible
-        self._client.on_disconnect = self._on_disconnect_v2
+        self._client.on_disconnect = self._on_disconnect
 
         try:
             self._client.connect(self._broker, self._port, self._keepalive)
@@ -55,7 +55,7 @@ class MqttWorker(QtCore.QObject):
             self.connection_status.emit("Desconectado")
 
     # on_connect callback for API V2
-    def _on_connect_v2(self, client, userdata, connect_flags, reason_code, properties):
+    def _on_connect(self, client, userdata, connect_flags, reason_code, properties):
         if reason_code == 0:
             self.log_message.emit("Successfully connected to MQTT broker.")
             self.connection_status.emit("Conectado")
@@ -73,7 +73,7 @@ class MqttWorker(QtCore.QObject):
         self.message_received.emit(msg.topic, payload)
 
     # on_disconnect callback for API V2
-    def _on_disconnect_v2(self, client, userdata, reason_code, properties):
+    def _on_disconnect(self, client, userdata, reason_code, properties):
         self.log_message.emit(f"MQTT disconnected with result code {reason_code}. Reconnecting...")
         self.connection_status.emit("Reconectando...")
         # The paho-mqtt client's loop_start automatically tries to reconnect
