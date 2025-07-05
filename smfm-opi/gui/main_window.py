@@ -18,7 +18,7 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
     """
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Monitor de Balanças (ESP32 via MQTT) - PyQt5")
+        self.setWindowTitle("Sistema de Monitoramento de Fluidos por Massa")
         self.setGeometry(100, 100, 1000, 800) # x, y, width, height
 
         self.central_widget = QtWidgets.QWidget()
@@ -50,7 +50,9 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
 
         # --- UI Elements ---
         self._create_mqtt_status_frame()
-        self._create_scale_frames() # This will now also create the plot widgets
+        self.scales_horizontal_layout = QtWidgets.QHBoxLayout()
+        self._create_scale_frames() # Este método agora adicionará os frames ao layout horizontal
+        self.main_layout.addLayout(self.scales_horizontal_layout) # Adicione o layout horizontal ao layout principal
         self._create_control_frame()
         self._create_log_frame()
         
@@ -102,7 +104,7 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
 
             # Weight and Status Labels
             weight_label_text = QtWidgets.QLabel("Peso Atual:")
-            weight_value_label = QtWidgets.QLabel("0.000 g")
+            weight_value_label = QtWidgets.QLabel("0.000 kg")
             weight_value_label.setFont(QtGui.QFont("Arial", 16, QtGui.QFont.Bold))
             
             status_label_text = QtWidgets.QLabel("Status:")
@@ -116,7 +118,7 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
             # Plot Widget for this scale
             plot_widget = pg.PlotWidget()
             plot_widget.setTitle(f"Balança 0{i} - Peso em Tempo Real")
-            plot_widget.setLabel('left', 'Peso', units='g')
+            plot_widget.setLabel('left', 'Peso', units='kg')
             plot_widget.setLabel('bottom', 'Tempo (amostras)')
             plot_widget.setBackground('k') # Black background
             plot_widget.showGrid(x=True, y=True) # Show grid
@@ -124,12 +126,13 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
             layout.addWidget(plot_widget, 2, 0, 1, 2) # Row 2, Col 0, Spans 1 row, 2 columns
 
             frame.setLayout(layout)
-            self.main_layout.addWidget(frame)
+            # NOVO: Adicione o frame ao layout horizontal das balanças
+            self.scales_horizontal_layout.addWidget(frame) 
             self.scale_frames[f"scale_0{i}"] = {
                 "weight_label": weight_value_label,
                 "status_label": status_value_label,
                 "plot_widget": plot_widget,
-                "frame_layout": layout # Store the layout for potential future additions
+                "frame_layout": layout # Armazena o layout do frame para potencial adição futura
             }
 
     def _create_control_frame(self):
@@ -145,7 +148,7 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
         auto_cal_zero_button.clicked.connect(self.send_autocalibrate_zero_command)
         layout.addWidget(auto_cal_zero_button, 2, 0, 1, 3) 
         
-        layout.addWidget(QtWidgets.QLabel("Peso Ref. (g):"), 3, 0)
+        layout.addWidget(QtWidgets.QLabel("Peso Ref. (kg):"), 3, 0)
         self.ref_weight_entry = QtWidgets.QLineEdit()
         self.ref_weight_entry.setPlaceholderText("e.g., 100.0")
         layout.addWidget(self.ref_weight_entry, 3, 1)
@@ -202,13 +205,19 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
 
             if topic == TOPIC_WEIGHT_01:
                 weight = float(payload)
-                self.scale_frames["scale_01"]["weight_label"].setText(f"{weight:.3f} g")
-                self.time_data_01.append(self.current_time_idx)
-                self.weight_data_01.append(weight)
+                self.scale_frames["scale_01"]["weight_label"].setText(f"{weight:.3f} kg")
+                if len(self.weight_data_01) == MAX_PLOT_POINTS:
+                    self.time_data_01.popleft()
+                    self.weight_data_01.popleft()
+                    self.time_data_01.append(self.current_time_idx)
+                    self.weight_data_01.append(weight)
+                else:
+                    self.time_data_01.append(self.current_time_idx)
+                    self.weight_data_01.append(weight)
 
             elif topic == TOPIC_WEIGHT_02:
                 weight = float(payload)
-                self.scale_frames["scale_02"]["weight_label"].setText(f"{weight:.3f} g")
+                self.scale_frames["scale_02"]["weight_label"].setText(f"{weight:.3f} kg")
                 self.time_data_02.append(self.current_time_idx)
                 self.weight_data_02.append(weight)
 
@@ -255,7 +264,7 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
     # --- Command Sending Methods (slots connected to buttons) ---
     @QtCore.pyqtSlot()
     def send_tare_command(self):
-        self.send_command("tare")
+        self.send_command("tare", "1")
 
     @QtCore.pyqtSlot()
     def send_autocalibrate_zero_command(self):
