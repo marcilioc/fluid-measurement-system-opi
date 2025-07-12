@@ -8,7 +8,7 @@ from mqtt.mqtt_worker import MqttWorker
 from utils.constants import (
     MQTT_BROKER, MQTT_PORT, MQTT_CLIENT_ID, MQTT_KEEPALIVE_INTERVAL,
     TOPIC_WEIGHT_01, TOPIC_WEIGHT_02, TOPIC_STATUS_01, TOPIC_STATUS_02, TOPIC_LOG,
-    COMMAND_TOPIC_01_PREFIX, COMMAND_TOPIC_02_PREFIX,
+    COMMAND_TOPIC_01_PREFIX, COMMAND_TOPIC_02_PREFIX, START_COMMAND,
     MAX_PLOT_POINTS, PLOT_UPDATE_INTERVAL_MS
 )
 
@@ -87,6 +87,9 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
         self.plot_timer.timeout.connect(self.update_plots)
         self.plot_timer.start()
 
+        # NEW: Operation state variable
+        self._operation_active = False # False = Stopped, True = Running
+
     def _create_mqtt_status_frame(self):
         self.mqtt_status_frame = QtWidgets.QGroupBox("Status MQTT")
         layout = QtWidgets.QVBoxLayout()
@@ -108,7 +111,8 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
             weight_value_label.setFont(QtGui.QFont("Arial", 16, QtGui.QFont.Bold))
             
             status_label_text = QtWidgets.QLabel("Status:")
-            status_value_label = QtWidgets.QLabel("Desconectado")
+            status_value_label = QtWidgets.QLabel("Desconectada")
+            status_value_label.setStyleSheet("color: blue; font-weight: bold;") # Cor inicial
 
             layout.addWidget(weight_label_text, 0, 0)
             layout.addWidget(weight_value_label, 0, 1)
@@ -139,14 +143,20 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
         self.control_frame = QtWidgets.QGroupBox("Controle e Calibração")
         layout = QtWidgets.QGridLayout() # Using QGridLayout for better alignment
 
+        # NEW: Operation Start/Stop Button
+        self.operation_button = QtWidgets.QPushButton("Iniciar Operação")
+        self.operation_button.setStyleSheet("background-color: lightgreen;") # Initial color
+        self.operation_button.clicked.connect(self._toggle_operation_start)
+        layout.addWidget(self.operation_button, 1, 0, 1, 3) # Row 0, Col 0, Spans 1 row, 3 columns
+
         # Buttons and Inputs
         tare_button = QtWidgets.QPushButton("Tarar Balança")
         tare_button.clicked.connect(self.send_tare_command)
-        layout.addWidget(tare_button, 1, 0, 1, 3) 
+        layout.addWidget(tare_button, 2, 0, 1, 3) 
 
         auto_cal_zero_button = QtWidgets.QPushButton("Autocalibrar Zero")
         auto_cal_zero_button.clicked.connect(self.send_autocalibrate_zero_command)
-        layout.addWidget(auto_cal_zero_button, 2, 0, 1, 3) 
+        layout.addWidget(auto_cal_zero_button, 3, 0, 1, 3)
         
         layout.addWidget(QtWidgets.QLabel("Peso Ref. (kg):"), 3, 0)
         self.ref_weight_entry = QtWidgets.QLineEdit()
@@ -222,9 +232,9 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
                 self.weight_data_02.append(weight)
 
             elif topic == TOPIC_STATUS_01:
-                self.scale_frames["scale_01"]["status_label"].setText(payload)
+                self._update_scale_status_display("scale_01", payload)
             elif topic == TOPIC_STATUS_02:
-                self.scale_frames["scale_02"]["status_label"].setText(payload)
+                self._update_scale_status_display("scale_02", payload)
             elif topic == TOPIC_LOG:
                 self.log_message(f"LOG Balança: {payload}")
             else:
@@ -241,6 +251,41 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
         # list() is used to convert deque to list for pyqtgraph.
         self.plot_curve_01.setData(list(self.time_data_01), list(self.weight_data_01))
         self.plot_curve_02.setData(list(self.time_data_02), list(self.weight_data_02))
+
+    def _update_scale_status_display(self, scale_key, payload):
+            status_label = self.scale_frames[scale_key]["status_label"]
+
+            # Define a cor com base no status
+            if int(payload) == 0:
+                status_label.setText("Desconectada")
+                status_label.setStyleSheet("color: blue; font-weight: bold;")
+            elif int(payload) == 1: # "Conectada - Desativada"
+                status_label.setText("Conectada - Desativada")
+                status_label.setStyleSheet("color: orange; font-weight: bold;") # Amarelo (laranja para melhor contraste)
+            elif int(payload) == 2: # "Conectada - Ativada"
+                status_label.setText("Conectada - Ativada")
+                status_label.setStyleSheet("color: green; font-weight: bold;")
+            elif int(payload) == 3: # "Conectada - Vazia"
+                status_label.setText("Conectada - Vazia")
+                status_label.setStyleSheet("color: red; font-weight: bold;")
+            else:
+                status_label.setStyleSheet("color: grey; font-weight: bold;") # Status desconhecido/padrão
+
+    @QtCore.pyqtSlot() # NEW slot for the operation button
+    def _toggle_operation_start(self):
+        """Toggles the operation state and sends the corresponding MQTT command."""
+        self._operation_active = not self._operation_active # Toggle the state
+        
+        payload_value = 1 if self._operation_active else 0 # 1 for start, 0 for stop
+        button_text = "Parar Operação" if self._operation_active else "Iniciar Operação"
+        button_color = "lightcoral" if self._operation_active else "lightgreen"
+
+        self.operation_button.setText(button_text)
+        self.operation_button.setStyleSheet(f"background-color: {button_color};")
+
+        # Send the MQTT command
+        self.mqtt_worker.publish_message(START_COMMAND, str(payload_value))
+        self.log_message(f"Comando de Operação: '{button_text}' ({payload_value}) enviado para {START_COMMAND}")
 
     def get_command_topic_prefix(self):
         """Returns the appropriate command topic prefix based on the selected scale."""

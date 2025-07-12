@@ -15,11 +15,12 @@ SCALE_O2_PREFIX = "smfm/s02/"
 # MQTT Topics for Data Publication (ESP32 -> Python)
 TOPIC_WEIGHT_01 = SCALE_O1_PREFIX + "measurement/weight"
 TOPIC_WEIGHT_02 = SCALE_O2_PREFIX + "measurement/weight"
-TOPIC_STATUS_01 = SCALE_O1_PREFIX + "status"
-TOPIC_STATUS_02 = SCALE_O2_PREFIX + "status"
+TOPIC_STATUS_01 = SCALE_O1_PREFIX + "operation/status"
+TOPIC_STATUS_02 = SCALE_O2_PREFIX + "operation/status"
 TOPIC_LOG = "smfm/log"
 
 # MQTT Topics for Command Subscription (Python -> ESP32)
+START_COMMAND = "smfm/operation/start"
 COMMAND_TOPIC_01_PREFIX = SCALE_O1_PREFIX + "operation/"
 COMMAND_TOPIC_02_PREFIX = SCALE_O2_PREFIX + "operation/"
 
