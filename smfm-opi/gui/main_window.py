@@ -66,7 +66,7 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
 
         # Add radio buttons to the control frame layout
         control_layout = self.control_frame.layout()
-        control_layout.addWidget(QtWidgets.QLabel("Selecionar Balança:"), 0, 0, 1, 3) # Spans 1 row, 3 columns
+        control_layout.addWidget(QtWidgets.QLabel("Selecionar Balança:"), 0, 0) # Spans 1 row, 3 columns
         control_layout.addWidget(self.radio_button_scale1, 0, 1)
         control_layout.addWidget(self.radio_button_scale2, 0, 2)
 
@@ -152,27 +152,27 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
         # Buttons and Inputs
         tare_button = QtWidgets.QPushButton("Tarar Balança")
         tare_button.clicked.connect(self.send_tare_command)
-        layout.addWidget(tare_button, 2, 0, 1, 3) 
+        layout.addWidget(tare_button, 2, 0, 1, 3)
 
         auto_cal_zero_button = QtWidgets.QPushButton("Autocalibrar Zero")
         auto_cal_zero_button.clicked.connect(self.send_autocalibrate_zero_command)
         layout.addWidget(auto_cal_zero_button, 3, 0, 1, 3)
         
-        layout.addWidget(QtWidgets.QLabel("Peso Ref. (kg):"), 3, 0)
+        layout.addWidget(QtWidgets.QLabel("Peso Ref. (kg):"), 4, 0)
         self.ref_weight_entry = QtWidgets.QLineEdit()
         self.ref_weight_entry.setPlaceholderText("e.g., 100.0")
-        layout.addWidget(self.ref_weight_entry, 3, 1)
+        layout.addWidget(self.ref_weight_entry, 4, 1)
         adjust_ref_button = QtWidgets.QPushButton("Ajustar com Referência")
         adjust_ref_button.clicked.connect(self.send_adjust_reference_command)
-        layout.addWidget(adjust_ref_button, 3, 2)
+        layout.addWidget(adjust_ref_button, 4, 2)
 
-        layout.addWidget(QtWidgets.QLabel("Fator Calib.:"), 4, 0)
+        layout.addWidget(QtWidgets.QLabel("Fator Calib.:"), 5, 0)
         self.cal_factor_entry = QtWidgets.QLineEdit()
         self.cal_factor_entry.setPlaceholderText("e.g., 0.01")
-        layout.addWidget(self.cal_factor_entry, 4, 1)
+        layout.addWidget(self.cal_factor_entry,5, 1)
         set_cal_factor_button = QtWidgets.QPushButton("Definir Fator Calib.")
         set_cal_factor_button.clicked.connect(self.send_set_calibration_factor_command)
-        layout.addWidget(set_cal_factor_button, 4, 2)
+        layout.addWidget(set_cal_factor_button, 5, 2)
 
         self.control_frame.setLayout(layout)
         self.main_layout.addWidget(self.control_frame)
@@ -259,13 +259,16 @@ class ScaleMonitorWindow(QtWidgets.QMainWindow):
             if int(payload) == 0:
                 status_label.setText("Desconectada")
                 status_label.setStyleSheet("color: blue; font-weight: bold;")
-            elif int(payload) == 1: # "Conectada - Desativada"
+            elif int(payload) == 1:
                 status_label.setText("Conectada - Desativada")
-                status_label.setStyleSheet("color: orange; font-weight: bold;") # Amarelo (laranja para melhor contraste)
-            elif int(payload) == 2: # "Conectada - Ativada"
-                status_label.setText("Conectada - Ativada")
+                status_label.setStyleSheet("color: blue; font-weight: bold;")
+            elif int(payload) == 2:
+                status_label.setText("Conectada - Stand-By")
+                status_label.setStyleSheet("color: orange; font-weight: bold;")
+            elif int(payload) == 3:
+                status_label.setText("Conectada - Operando")
                 status_label.setStyleSheet("color: green; font-weight: bold;")
-            elif int(payload) == 3: # "Conectada - Vazia"
+            elif int(payload) == 4:
                 status_label.setText("Conectada - Vazia")
                 status_label.setStyleSheet("color: red; font-weight: bold;")
             else:
